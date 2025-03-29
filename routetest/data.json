@@ -1,0 +1,48 @@
+{
+  "applied-project": [
+    {
+      "id": "81a0",
+      "name": "santhu",
+      "email": "sasnteuih@gmail.com",
+      "phno": "7990349999",
+      "prj": "summa",
+      "prjdes": "231",
+      "dur": "2",
+      "status": "Accepted"
+    },
+    {
+      "id": "673f",
+      "name": "santhu",
+      "email": "santhumani1223@gmail.com",
+      "phno": "7987909878",
+      "prj": "sa",
+      "prjdes": "asdsadas",
+      "dur": "12",
+      "status": "Accepted"
+    },
+    {
+      "id": "0ec6",
+      "name": "santhu",
+      "email": "santhumani1223@gmail.com",
+      "phno": "7987909870",
+      "prj": "test",
+      "prjdes": "tesing",
+      "dur": "2",
+      "status": "Declined"
+    }
+  ],
+  "contact": [
+    {
+      "id": "d9a5",
+      "name": "santhu",
+      "mail": "santhumani122@gmail.com",
+      "content": "hi da"
+    },
+    {
+      "id": "d95",
+      "name": "santhu77",
+      "mail": "santhumani122@gmail.com",
+      "content": " dai"
+    }
+  ]
+}

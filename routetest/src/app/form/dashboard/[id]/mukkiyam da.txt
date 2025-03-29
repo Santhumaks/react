@@ -1,0 +1,205 @@
+"use client";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { getRecordById, getProjectsByUserId, addNewProject } from "@/app/services/api";
+import ValidatedInput from "@/app/validinput/page";
+
+interface User {
+    id: number;
+    name: string;
+    username: string;
+    email: string;
+    phno: string;
+    address: string;
+}
+
+interface Project {
+    project_title: string;
+    project_description: string;
+    project_duration: number;
+    budget: number;
+    user: number;
+}
+
+export default function DashboardPage() {
+    const { id } = useParams(); 
+    const [user, setUser] = useState<User | null>(null);
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [dashMain, setDash] = useState("profile");
+    const [newProject, setNewProject] = useState({
+        project_title: "",
+        project_description: "",
+        project_duration: "",
+        budget: "",
+        user:id
+    });
+    const [validFields, setValidFields] = useState({
+        project_title: false,
+        project_description: false,
+        project_duration: false,
+        budget: false,
+    });
+
+    const router = useRouter();
+
+    useEffect(() => {
+        fetchUser();
+        fetchProjects();
+    }, [id]);
+
+    const fetchUser = async () => {
+        try {
+            const data = await getRecordById(id);
+            setUser(data);
+        } catch (error) {
+            console.error("Error fetching user:", error);
+        }
+    };
+
+    const fetchProjects = async () => {
+        try {
+            const data = await getProjectsByUserId(id);
+            setProjects(data);
+        } catch (error) {
+            console.error("Error fetching projects:", error);
+        }
+    };
+
+    const handleProjectChange = (name: string, value: string, isValid: boolean) => {
+        setNewProject((prev) => ({ ...prev, [name]: value }));
+        setValidFields((prev) => ({ ...prev, [name]: isValid }));
+        console.log(newProject)
+    };
+
+    const handleAddProject = async () => {
+        if (Object.values(validFields).includes(false)) {
+            alert("Please fill out all fields correctly!");
+            return;
+        }
+
+        try {
+            const projectData = { ...newProject, user: id };
+            await addNewProject(projectData);
+            alert("Project assigned successfully!");
+            fetchProjects();
+            setNewProject({ project_title: "", project_description: "", project_duration: "", budget: "" });
+            setValidFields({ project_title: false, project_description: false, project_duration: false, budget: false });
+        } catch (error) {
+            console.error("Error adding project:", error);
+        }
+    };
+
+    return (
+        <div className="flex h-screen">
+            <div className="w-64 bg-gray-800 text-white p-5 flex flex-col">
+                <h2 className="text-xl font-semibold">Dashboard</h2>
+                <nav className="mt-5">
+                    <ul>
+                        <li className="py-2 px-4 hover:bg-gray-700 rounded cursor-pointer" onClick={() => setDash("profile")}>Profile</li>
+                        <li className="py-2 px-4 hover:bg-gray-700 rounded cursor-pointer" onClick={() => setDash("project")}>Projects</li>
+                    </ul>
+                </nav>
+            </div>
+
+            <div className="flex-1 p-5">
+                <div className="flex">
+                    <h1 className="font-semibold text-2xl">Welcome to Dashboard, {user?.name}</h1>
+                    <button className="ml-auto bg-red-500 text-white px-4 py-2 rounded" onClick={() => router.push("/form")}>Logout</button>
+                </div>
+
+                {dashMain === "profile" && (
+                    <div className="mt-10 mx-auto text-center bg-gray-100 rounded-md w-3/4 p-10">
+                        <h1 className="font-semibold text-2xl">Your Profile</h1>
+                        <p className="pt-5">User ID: {id}</p>
+                        <p>Full name: {user?.name}</p>
+                        <p>Phone number: {user?.phno}</p>
+                        <p>Email: {user?.email}</p>
+                        <p>Address: {user?.address}</p>
+                        <p>Username: {user?.username}</p>
+                        <button className="mt-5 bg-blue-600 text-white px-4 py-2 rounded" onClick={() => router.push(`/form/dashboard/useredit/${id}`)}>Edit</button>
+                    </div>
+                )}
+
+                {dashMain === "project" && (
+                    <div className="mt-10 mx-auto bg-gray-100 rounded-md w-3/4 p-10">
+                        <h1 className="font-semibold text-2xl text-center">Your Projects</h1>
+
+                        {projects.length > 0 ? (
+                            <table className="w-full mt-5 border-collapse border border-gray-400">
+                                <thead>
+                                    <tr className="bg-gray-200">
+                                        <th className="border p-2">Title</th>
+                                        <th className="border p-2">Description</th>
+                                        <th className="border p-2">Duration</th>
+                                        <th className="border p-2">Budget</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {projects.map((project) => (
+                                        <tr key={project.user} className="text-center">
+                                            <td className="border p-2">{project.project_title}</td>
+                                            <td className="border p-2">{project.project_description}</td>
+                                            <td className="border p-2">{project.project_duration}</td>
+                                            <td className="border p-2">${project.budget}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        ) : (
+                            <p className="text-center text-gray-600 mt-5">No projects assigned yet.</p>
+                        )}
+
+                        <div className="mt-10">
+                            <h2 className="text-xl font-semibold">Assign a New Project</h2>
+                            
+                            <ValidatedInput
+                                label="Project Title"
+                                name="project_title"
+                                placeholder="Enter project title"
+                                pattern=".{3,}"
+                                errmsg="Title must contain 3 letter"
+                                required={true}
+                                onValidChange={(isValid: boolean, value: string) => handleProjectChange("project_title", value, isValid)}
+                            />
+                            <ValidatedInput
+                                label="Project Description"
+                                name="project_description"
+                                placeholder="Enter project description"
+                                pattern=".{30,}"
+                                errmsg="Description must contain 30 letter"
+                                required={true}
+                                onValidChange={(isValid: boolean, value: string) => handleProjectChange("project_description", value, isValid)}
+                            />
+                            <ValidatedInput
+                                label="Project Duration"
+                                name="project_duration"
+                                placeholder="e.g., 3 months"
+                                pattern="^\d+\s?(months|weeks|days)?$"
+                                errmsg="Enter a valid duration (e.g., '3 months')"
+                                required={true}
+                                onValidChange={(isValid: boolean, value: string) => handleProjectChange("project_duration", value, isValid)}
+                            />
+                            <ValidatedInput
+                                label="Budget ($)"
+                                name="budget"
+                                placeholder="Enter budget"
+                                pattern="^\d+$"
+                                errmsg="Enter a valid numeric budget"
+                                required={true}
+                                onValidChange={(isValid: boolean, value: string) => handleProjectChange("budget", value, isValid)}
+                            />
+                            
+                            <button 
+                                onClick={handleAddProject} 
+                                className={`mt-3 px-4 py-2 rounded text-white ${Object.values(validFields).every(Boolean) ? "bg-green-600 hover:bg-green-700" : "bg-gray-400 cursor-not-allowed"}`}
+                                disabled={!Object.values(validFields).every(Boolean)}
+                            >
+                                Assign Project
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}

@@ -1,0 +1,150 @@
+"use client";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+interface Project {
+    id: string;
+    prj: string;
+    prjdes: string;
+    name: string;
+    dur: number;
+    status?: string;
+}
+interface Rep{
+    id:string;
+    name:string;
+    mail:string;
+    content:string;
+}
+const AdminDash = () => {
+    const [data, setData] = useState<Project[]>([]);
+    const [repdata,setrep]=useState<Rep[]>([]);
+    const router=useRouter();
+    const [r,setr]=useState();
+    useEffect(() => {
+        fetchData();
+        fetchReport();
+    }, []);
+    const fetchReport = async () => {
+        try {
+            const response = await fetch("http://localhost:5000/contact");
+            const report: Rep[] = await response.json();
+            setrep(report);
+        } catch (error) {
+            console.error("Error fetching data:", error);
+        }
+    };
+    const fetchData = async () => {
+        try {
+            const response = await fetch("http://localhost:5000/applied-project");
+            const result: Project[] = await response.json();
+            setData(result);
+        } catch (error) {
+            console.error("Error fetching data:", error);
+        }
+    };
+
+    const handleDecline = async (id: string) => {
+        try {
+            await fetch(`http://localhost:5000/applied-project/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: "Declined" }),
+            });
+            setData(prevData => prevData.filter(item => item.id !== id));
+        } catch (error) {
+            console.error("Error deleting project:", error);
+        }
+    };
+
+    const handleAccept = async (id: string) => {
+        try {
+            await fetch(`http://localhost:5000/applied-project/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: "Accepted" }),
+            });
+
+            setData(prevData =>
+                prevData.map(item =>
+                    item.id === id ? { ...item, status: "Accepted" } : item
+                )
+            );
+        } catch (error) {
+            console.error("Error updating project status:", error);
+        }
+    };
+
+    return (
+        <div className="container mx-auto mt-20 p-4">
+            <button className="w-20 mt-4 ml-220 bg-gray-600 text-white py-2 rounded-md hover:bg-red-600 transition" onClick={()=>router.push("/adminlog")}>Logout</button>
+            <h1 className="text-2xl font-bold mb-4 text-center">Admin Dashboard</h1>
+            <table className="min-w-full bg-white border border-gray-300 shadow-md">
+                <thead>
+                    <tr className="bg-gray-200">
+                        <th className="border px-4 py-2">Project Name</th>
+                        <th className="border px-4 py-2">Project Description</th>
+                        <th className="border px-4 py-2">Applicant Name</th>
+                        <th className="border px-4 py-2">Duration (months)</th>
+                        <th className="border px-4 py-2">Status</th>
+                        <th className="border px-4 py-2">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {data.length > 0 ? (
+                        data.filter((item)=>item.status==="Accepted"||item.status==="Pending").map((item) => (
+                            
+                            <tr key={item.id} className="text-center">
+                                <td className="border px-4 py-2">{item.prj}</td>
+                                <td className="border px-4 py-2">{item.prjdes}</td>
+                                <td className="border px-4 py-2">{item.name}</td>
+                                <td className="border px-4 py-2">{item.dur}</td>
+                                <td className="border px-4 py-2">{item.status}</td>
+                                <td className="border px-4 py-2 flex flex-col items-center gap-2">
+                                    <button
+                                        className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-700"
+                                        onClick={() => handleAccept(item.id)}
+                                    >
+                                        Accept
+                                    </button>
+                                    <button
+                                        className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-700"
+                                        onClick={() => handleDecline(item.id)}
+                                    >
+                                        Decline
+                                    </button>
+                                </td>
+                            </tr>
+                        ))
+                    ) : (
+                        <tr>
+                            <td colSpan={6} className="text-center py-4 text-gray-500">
+                                No data available
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+            <div className="pt-6 mt-16 bg-red-100 flex flex-col items-center rounded-lg">
+            <h2 className="text-xl mt-5  pb-10 font-bold text-center">Reports</h2>
+              {repdata.length>0?(
+                repdata.map((ritem)=>(
+                    <ul className="list-none">
+                    <li>
+                    <div className="w-100 bg-white p-8 shadow-lg rounded-lg mb-3">
+                        <p>Name:{ritem.name}</p>
+                        <p>Mail-id:{ritem.mail}</p>
+                        <p>Content:{ritem.content}</p>
+                    </div>
+                    </li>
+                    </ul>
+                ))
+                )
+                :
+                (<h3>Data not Found</h3>)
+              }
+            </div>
+        </div>
+    );
+};
+
+export default AdminDash;
