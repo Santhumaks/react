@@ -42,3 +42,32 @@ export const softDeleteProject = async (id:any,st:string) => {
     const response = await axios.patch(`http://127.0.0.1:8000/api/project/${id}/${st}/soft-delete/`);
     return response.data;
 };
+
+
+
+// Get all meeetings da santhu
+const meeting_url = "http://127.0.0.1:8000/api/meeting/";
+
+// Get all meetings
+export const getAllMeetings = async () => {
+    const response = await axios.get(meeting_url);
+    return response.data;
+};
+
+
+
+// Create a new meeting
+export const createMeeting = async (data: any) => {
+    const response = await axios.post(`${meeting_url}create/`, data);
+    return response.data;
+};
+
+// Soft delete or update status of a meeting (optional)
+export const updateMeetingStatus = async (id: any, status: string) => {
+    const response = await axios.patch(`${meeting_url}${id}/${status}/update-status/`);
+    return response.data;
+};
+export const getMeetingsByUser = async (userId: any) => {
+    const response = await axios.get(`http://127.0.0.1:8000/api/meetings/user/${userId}/`);
+    return response.data;
+};

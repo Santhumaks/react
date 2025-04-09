@@ -2,8 +2,11 @@ from django.db import connection
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+from datetime import datetime
 from myapp.models import User
 from myapp.models import Project
+from myapp.models import Meeting
+from myapp.serializers import MeetingSerializer
 from myapp.serializers import UserSerializer
 from myapp.serializers import ProjectSerializer
 
@@ -24,6 +27,13 @@ def get_allprojects(request):
     connection.close()  
     return response
 
+@api_view(['GET'])
+def get_scheduled_meetings(request):
+    meetings = Meeting.objects.filter(meeting_status='scheduled')
+    serializer = MeetingSerializer(meetings, many=True)
+    response = Response(serializer.data)
+    connection.close()
+    return response
 
 # # R(1)
 @api_view(['GET'])
@@ -51,6 +61,33 @@ def get_projects_by_userid(request, user_id):
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+@api_view(['GET'])
+def get_meetings_by_user(request, user_id):
+    try:
+        # Step 1: Get all project IDs for the user
+        project_ids = Project.objects.filter(user_id=user_id).values_list('id', flat=True)
+
+        if not project_ids:
+            return Response({"error": "No projects found for this user."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Step 2: Get all meetings related to those projects
+        meetings = Meeting.objects.filter(project_id__in=project_ids)
+
+        if not meetings.exists():
+            return Response({"message": "No meetings found for this user."}, status=status.HTTP_200_OK)
+
+        # Step 3: Serialize and return
+        serializer = MeetingSerializer(meetings, many=True)
+        response = Response(serializer.data, status=status.HTTP_200_OK)
+        connection.close()
+        return response
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+        
 # C
 @api_view(['POST'])
 def create_example_data(request):
@@ -64,6 +101,21 @@ def create_example_data(request):
 
     connection.close()
     return response
+
+@api_view(['POST'])
+def create_meeting(request):
+    serializer = MeetingSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        response = Response(serializer.data, status=status.HTTP_201_CREATED)
+    else:
+        print("Serializer Errors:", serializer.errors)
+        response = Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    connection.close()
+    return response
+
+
 @api_view(["POST"])
 def add_projectByid(request):
     serializer = ProjectSerializer(data=request.data)

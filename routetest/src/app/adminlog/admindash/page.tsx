@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getAllRecords, softDeleteRecord, getAllProjects,softDeleteProject} from "@/app/services/api";
+import { getAllRecords, softDeleteRecord, getAllProjects,softDeleteProject,getAllMeetings,createMeeting} from "@/app/services/api";
 import Link from "next/link";
 
 interface User {
@@ -20,11 +20,29 @@ interface Project {
     id: number;
 }
 
+interface Meeting {
+    id: number;
+    project: number;
+    meeting_date: string;
+    meeting_time: string;
+    meeting_status: string;
+}
+interface Meet {
+    project: number;
+    meeting_date: string;
+    meeting_time: string;
+}
 
 export default function AdminDashboard() {
     const router = useRouter();
     const [users, setUsers] = useState<User[]>([]);
     const [projects, setProjects] = useState<Project[]>([]); 
+    const [meetings, setMeetings] = useState<Meeting[]>([]);
+    const [meetingDate, setMeetingDate] = useState("");
+    const [meetingTime, setMeetingTime] = useState("");
+    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+
+    const [showMeetingForm, setShowMeetingForm] = useState(false);
     const [activeTab, setActiveTab] = useState("users"); 
 
     useEffect(() => {
@@ -32,8 +50,50 @@ export default function AdminDashboard() {
             fetchUsers();
         } else if (activeTab === "projects") {
             fetchProjects();
+        }else if (activeTab === "meeting") {
+            fetchMeetings();
         }
     }, [activeTab]);
+    const fetchMeetings = async () => {
+        try {
+            const data = await getAllMeetings();
+            setMeetings(data);
+            console.log(data);
+        } catch (error) {
+            console.error("Error fetching meetings:", error);
+        }
+    };
+    const handleMeetingSubmit = async () => {
+        if (!meetingDate || !meetingTime || selectedProjectId === null) {
+            alert("Please select a date and time");
+            return;
+        }
+    
+        const meetingData: Meet = {
+            project: selectedProjectId,
+            meeting_date: meetingDate,
+            meeting_time: meetingTime,
+        };
+    
+        try {
+            await softDeleteProject(selectedProjectId, "Accepted");
+    
+            await createMeeting(meetingData);
+    
+            alert("Meeting scheduled and project accepted!");
+    
+            setShowMeetingForm(false);
+            setMeetingDate("");
+            setMeetingTime("");
+            setSelectedProjectId(null);
+            fetchProjects(); 
+            fetchMeetings();
+        } catch (error) {
+            console.error("Error submitting meeting:", error);
+            alert("Something went wrong");
+        }
+    };
+    
 
     const fetchUsers = async () => {
         try {
@@ -57,16 +117,16 @@ export default function AdminDashboard() {
         alert("User has been deleted successfully");
         softDeleteRecord(id);
     };
-    const deleteproject = (id: any,st:string) => {
-        if(st=="Accepted"){
-            alert("Project has been accepted successfully");
-          
+    const deleteproject = (id: number, st: string) => {
+        if (st === "Accepted") {
+            setSelectedProjectId(id);
+            setShowMeetingForm(true); // Show meeting modal
+        } else if (st === "Declined") {
+            alert("Project has been deleted successfully");
+            softDeleteProject(id, st);
         }
-        else if(st=="Declined"){            
-        alert("Project has been deleted successfully");
-        }
-        softDeleteProject(id,st);
     };
+    
 
 
     return (
@@ -203,10 +263,63 @@ export default function AdminDashboard() {
                     </div>
                 )}
                 {activeTab === "meeting" && (
-                    <div className="bg-white p-6 mt-5 shadow-md rounded-lg">
-                    <h1>Working on it..............</h1>
-                    </div>
+                   <div className="bg-white p-6 mt-5 shadow-md rounded-lg">
+                   <h2 className="text-2xl font-semibold mb-4">Scheduled Meetings</h2>
+                   <table className="w-full border-collapse border border-gray-300 text-sm">
+                       <thead>
+                           <tr className="bg-gray-200">
+                               <th className="border p-2">ID</th>
+                               <th className="border p-2">Project ID</th>
+                               <th className="border p-2">Date</th>
+                               <th className="border p-2">Time</th>
+                               <th className="border p-2">Status</th>
+                           </tr>
+                       </thead>
+                       <tbody>
+                           {meetings.map((meeting) => (
+                               <tr key={meeting.id} className="text-center">
+                                   <td className="border p-2">{meeting.id}</td>
+                                   <td className="border p-2">{meeting.project}</td>
+                                   <td className="border p-2">{meeting.meeting_date}</td>
+                                   <td className="border p-2">{meeting.meeting_time}</td>
+                                   <td className="border p-2">{meeting.meeting_status}</td>
+                               </tr>
+                           ))}
+                       </tbody>
+                   </table>
+               </div>
+               
                 )}
+                {showMeetingForm && (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white p-6 rounded shadow-lg w-96">
+            <h3 className="text-xl font-bold mb-4">Schedule Meeting</h3>
+            <label className="block mb-2 text-sm">Meeting Date</label>
+            <input
+                type="date"
+                value={meetingDate}
+                onChange={(e) => setMeetingDate(e.target.value)}
+                className="w-full border px-3 py-2 mb-4 rounded"
+            />
+            <label className="block mb-2 text-sm">Meeting Time</label>
+            <input
+                type="time"
+                value={meetingTime}
+                onChange={(e) => setMeetingTime(e.target.value)}
+                className="w-full border px-3 py-2 mb-4 rounded"
+            />
+            <div className="flex justify-end space-x-3">
+                <button
+                    onClick={handleMeetingSubmit}
+                    className="bg-blue-600 text-white px-4 py-2 rounded"
+                >
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
             </div>
         </div>
     );

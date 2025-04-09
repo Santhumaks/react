@@ -21,3 +21,12 @@ class Project(models.Model):
     status = models.CharField(default="pending", max_length=20)
     class Meta:
         db_table="projects"
+
+class Meeting(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='meetings')
+    meeting_date = models.DateField()
+    meeting_time = models.TimeField()
+    meeting_status = models.CharField(max_length=20, default='scheduled')
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        db_table = "meetings"
