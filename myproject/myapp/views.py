@@ -65,19 +65,16 @@ def get_projects_by_userid(request, user_id):
 @api_view(['GET'])
 def get_meetings_by_user(request, user_id):
     try:
-        # Step 1: Get all project IDs for the user
         project_ids = Project.objects.filter(user_id=user_id).values_list('id', flat=True)
 
         if not project_ids:
             return Response({"error": "No projects found for this user."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Step 2: Get all meetings related to those projects
         meetings = Meeting.objects.filter(project_id__in=project_ids)
 
         if not meetings.exists():
             return Response({"message": "No meetings found for this user."}, status=status.HTTP_200_OK)
 
-        # Step 3: Serialize and return
         serializer = MeetingSerializer(meetings, many=True)
         response = Response(serializer.data, status=status.HTTP_200_OK)
         connection.close()

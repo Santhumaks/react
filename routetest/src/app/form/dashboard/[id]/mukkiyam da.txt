@@ -1,205 +1,362 @@
 "use client";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getRecordById, getProjectsByUserId, addNewProject } from "@/app/services/api";
-import ValidatedInput from "@/app/validinput/page";
+import {
+  getAllRecords,
+  softDeleteRecord,
+  getAllProjects,
+  softDeleteProject,
+  getAllMeetings,
+  createMeeting,
+} from "@/app/services/api";
+import Link from "next/link";
 
 interface User {
-    id: number;
-    name: string;
-    username: string;
-    email: string;
-    phno: string;
-    address: string;
+  id: number;
+  name: string;
+  email: string;
+  role: string;
 }
 
 interface Project {
-    project_title: string;
-    project_description: string;
-    project_duration: number;
-    budget: number;
-    user: number;
+  project_title: string;
+  project_description: string;
+  project_duration: number;
+  budget: number;
+  user: number;
+  id: number;
 }
 
-export default function DashboardPage() {
-    const { id } = useParams(); 
-    const [user, setUser] = useState<User | null>(null);
-    const [projects, setProjects] = useState<Project[]>([]);
-    const [dashMain, setDash] = useState("profile");
-    const [newProject, setNewProject] = useState({
-        project_title: "",
-        project_description: "",
-        project_duration: "",
-        budget: "",
-        user:id
-    });
-    const [validFields, setValidFields] = useState({
-        project_title: false,
-        project_description: false,
-        project_duration: false,
-        budget: false,
-    });
+interface Meeting {
+  id: number;
+  project: number;
+  meeting_date: string;
+  meeting_time: string;
+  meeting_status: string;
+}
+interface Meet {
+  project: number;
+  meeting_date: string;
+  meeting_time: string;
+}
 
-    const router = useRouter();
+export default function AdminDashboard() {
+  const router = useRouter();
+  const [users, setUsers] = useState<User[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [meetingDate, setMeetingDate] = useState("");
+  const [meetingTime, setMeetingTime] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const [showMeetingForm, setShowMeetingForm] = useState(false);
+  const [activeTab, setActiveTab] = useState("users");
+  const [chk, setchk] = useState(true);
 
-    useEffect(() => {
-        fetchUser();
-        fetchProjects();
-    }, [id]);
+  const curdate = new Date().toISOString().split("T")[0];
 
-    const fetchUser = async () => {
-        try {
-            const data = await getRecordById(id);
-            setUser(data);
-        } catch (error) {
-            console.error("Error fetching user:", error);
-        }
+  useEffect(() => {
+    if (activeTab === "users") {
+      fetchUsers();
+    } else if (activeTab === "projects") {
+      fetchProjects();
+    } else if (activeTab === "meeting") {
+      fetchMeetings();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!meetingDate || !meetingTime) {
+      setchk(true);
+      return;
+    }
+
+    const now = new Date();
+    const curDate = now.toISOString().split("T")[0];
+    const curTime = now.toTimeString().slice(0, 5);
+
+    const minAllowed = "18:00";
+    const maxAllowed = "21:00";
+
+    const isWithinRange = meetingTime >= minAllowed && meetingTime <= maxAllowed;
+    const isAfterNow = meetingDate > curDate || (meetingDate === curDate && meetingTime > curTime);
+
+    setchk(!(isWithinRange && isAfterNow));
+  }, [meetingDate, meetingTime]);
+
+  const fetchUsers = async () => {
+    try {
+      const data = await getAllRecords();
+      setUsers(data);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
+
+  const fetchProjects = async () => {
+    try {
+      const data = await getAllProjects();
+      setProjects(data);
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+    }
+  };
+
+  const fetchMeetings = async () => {
+    try {
+      const data = await getAllMeetings();
+      setMeetings(data);
+    } catch (error) {
+      console.error("Error fetching meetings:", error);
+    }
+  };
+
+  const deletepannuda = (id: any) => {
+    alert("User has been deleted successfully");
+    softDeleteRecord(id);
+  };
+
+  const deleteproject = (id: number, st: string) => {
+    if (st === "Accepted") {
+      setSelectedProjectId(id);
+      setShowMeetingForm(true);
+    } else if (st === "Declined") {
+      alert("Project has been deleted successfully");
+      softDeleteProject(id, st);
+    }
+  };
+
+  const handleMeetingSubmit = async () => {
+    if (!meetingDate || !meetingTime || selectedProjectId === null) {
+      alert("Please select a date and time");
+      return;
+    }
+
+    const meetingData: Meet = {
+      project: selectedProjectId,
+      meeting_date: meetingDate,
+      meeting_time: meetingTime,
     };
 
-    const fetchProjects = async () => {
-        try {
-            const data = await getProjectsByUserId(id);
-            setProjects(data);
-        } catch (error) {
-            console.error("Error fetching projects:", error);
-        }
-    };
+    try {
+      await softDeleteProject(selectedProjectId, "Accepted");
+      await createMeeting(meetingData);
+      alert("Meeting scheduled and project accepted!");
 
-    const handleProjectChange = (name: string, value: string, isValid: boolean) => {
-        setNewProject((prev) => ({ ...prev, [name]: value }));
-        setValidFields((prev) => ({ ...prev, [name]: isValid }));
-        console.log(newProject)
-    };
+      setShowMeetingForm(false);
+      setMeetingDate("");
+      setMeetingTime("");
+      setSelectedProjectId(null);
+      fetchProjects();
+      fetchMeetings();
+    } catch (error) {
+      console.error("Error submitting meeting:", error);
+      alert("Something went wrong");
+    }
+  };
 
-    const handleAddProject = async () => {
-        if (Object.values(validFields).includes(false)) {
-            alert("Please fill out all fields correctly!");
-            return;
-        }
+  return (
+    <div className="flex h-screen bg-gray-100">
+      <div className="w-64 bg-gray-800 text-white p-5 flex flex-col">
+        <h2 className="text-xl font-semibold">Admin Panel</h2>
+        <nav className="mt-5">
+          <ul>
+            <li
+              className={`py-2 px-4 hover:bg-gray-700 rounded cursor-pointer ${
+                activeTab === "users" ? "bg-gray-700" : ""
+              }`}
+              onClick={() => setActiveTab("users")}
+            >
+              Users
+            </li>
+            <li
+              className={`py-2 px-4 hover:bg-gray-700 rounded cursor-pointer ${
+                activeTab === "projects" ? "bg-gray-700" : ""
+              }`}
+              onClick={() => setActiveTab("projects")}
+            >
+              Projects Applications
+            </li>
+            <li
+              className={`py-2 px-4 hover:bg-gray-700 rounded cursor-pointer ${
+                activeTab === "meeting" ? "bg-gray-700" : ""
+              }`}
+              onClick={() => setActiveTab("meeting")}
+            >
+              Project Meeting
+            </li>
+          </ul>
+        </nav>
+      </div>
 
-        try {
-            const projectData = { ...newProject, user: id };
-            await addNewProject(projectData);
-            alert("Project assigned successfully!");
-            fetchProjects();
-            setNewProject({ project_title: "", project_description: "", project_duration: "", budget: "" });
-            setValidFields({ project_title: false, project_description: false, project_duration: false, budget: false });
-        } catch (error) {
-            console.error("Error adding project:", error);
-        }
-    };
-
-    return (
-        <div className="flex h-screen">
-            <div className="w-64 bg-gray-800 text-white p-5 flex flex-col">
-                <h2 className="text-xl font-semibold">Dashboard</h2>
-                <nav className="mt-5">
-                    <ul>
-                        <li className="py-2 px-4 hover:bg-gray-700 rounded cursor-pointer" onClick={() => setDash("profile")}>Profile</li>
-                        <li className="py-2 px-4 hover:bg-gray-700 rounded cursor-pointer" onClick={() => setDash("project")}>Projects</li>
-                    </ul>
-                </nav>
-            </div>
-
-            <div className="flex-1 p-5">
-                <div className="flex">
-                    <h1 className="font-semibold text-2xl">Welcome to Dashboard, {user?.name}</h1>
-                    <button className="ml-auto bg-red-500 text-white px-4 py-2 rounded" onClick={() => router.push("/form")}>Logout</button>
-                </div>
-
-                {dashMain === "profile" && (
-                    <div className="mt-10 mx-auto text-center bg-gray-100 rounded-md w-3/4 p-10">
-                        <h1 className="font-semibold text-2xl">Your Profile</h1>
-                        <p className="pt-5">User ID: {id}</p>
-                        <p>Full name: {user?.name}</p>
-                        <p>Phone number: {user?.phno}</p>
-                        <p>Email: {user?.email}</p>
-                        <p>Address: {user?.address}</p>
-                        <p>Username: {user?.username}</p>
-                        <button className="mt-5 bg-blue-600 text-white px-4 py-2 rounded" onClick={() => router.push(`/form/dashboard/useredit/${id}`)}>Edit</button>
-                    </div>
-                )}
-
-                {dashMain === "project" && (
-                    <div className="mt-10 mx-auto bg-gray-100 rounded-md w-3/4 p-10">
-                        <h1 className="font-semibold text-2xl text-center">Your Projects</h1>
-
-                        {projects.length > 0 ? (
-                            <table className="w-full mt-5 border-collapse border border-gray-400">
-                                <thead>
-                                    <tr className="bg-gray-200">
-                                        <th className="border p-2">Title</th>
-                                        <th className="border p-2">Description</th>
-                                        <th className="border p-2">Duration</th>
-                                        <th className="border p-2">Budget</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {projects.map((project) => (
-                                        <tr key={project.user} className="text-center">
-                                            <td className="border p-2">{project.project_title}</td>
-                                            <td className="border p-2">{project.project_description}</td>
-                                            <td className="border p-2">{project.project_duration}</td>
-                                            <td className="border p-2">${project.budget}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        ) : (
-                            <p className="text-center text-gray-600 mt-5">No projects assigned yet.</p>
-                        )}
-
-                        <div className="mt-10">
-                            <h2 className="text-xl font-semibold">Assign a New Project</h2>
-                            
-                            <ValidatedInput
-                                label="Project Title"
-                                name="project_title"
-                                placeholder="Enter project title"
-                                pattern=".{3,}"
-                                errmsg="Title must contain 3 letter"
-                                required={true}
-                                onValidChange={(isValid: boolean, value: string) => handleProjectChange("project_title", value, isValid)}
-                            />
-                            <ValidatedInput
-                                label="Project Description"
-                                name="project_description"
-                                placeholder="Enter project description"
-                                pattern=".{30,}"
-                                errmsg="Description must contain 30 letter"
-                                required={true}
-                                onValidChange={(isValid: boolean, value: string) => handleProjectChange("project_description", value, isValid)}
-                            />
-                            <ValidatedInput
-                                label="Project Duration"
-                                name="project_duration"
-                                placeholder="e.g., 3 months"
-                                pattern="^\d+\s?(months|weeks|days)?$"
-                                errmsg="Enter a valid duration (e.g., '3 months')"
-                                required={true}
-                                onValidChange={(isValid: boolean, value: string) => handleProjectChange("project_duration", value, isValid)}
-                            />
-                            <ValidatedInput
-                                label="Budget ($)"
-                                name="budget"
-                                placeholder="Enter budget"
-                                pattern="^\d+$"
-                                errmsg="Enter a valid numeric budget"
-                                required={true}
-                                onValidChange={(isValid: boolean, value: string) => handleProjectChange("budget", value, isValid)}
-                            />
-                            
-                            <button 
-                                onClick={handleAddProject} 
-                                className={`mt-3 px-4 py-2 rounded text-white ${Object.values(validFields).every(Boolean) ? "bg-green-600 hover:bg-green-700" : "bg-gray-400 cursor-not-allowed"}`}
-                                disabled={!Object.values(validFields).every(Boolean)}
-                            >
-                                Assign Project
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </div>
+      <div className="flex-1 p-5">
+        <div className="flex">
+          <h1 className="font-semibold text-2xl">Admin's Dashboard</h1>
+          <button
+            className="ml-auto bg-red-500 text-white px-4 py-2 rounded"
+            onClick={() => {
+              router.push("/adminlog");
+            }}
+          >
+            Logout
+          </button>
         </div>
-    );
+
+        {activeTab === "users" && (
+          <div className="bg-white p-6 mt-5 shadow-md rounded-lg">
+            <h2 className="text-2xl font-semibold mb-4">Users</h2>
+            <table className="w-full border-collapse border border-gray-300 text-sm">
+              <thead>
+                <tr className="bg-gray-200">
+                  <th className="border p-2">ID</th>
+                  <th className="border p-2">Name</th>
+                  <th className="border p-2">Email</th>
+                  <th className="border p-2">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((user) => (
+                  <tr key={user.id} className="text-center">
+                    <td className="border p-2">{user.id}</td>
+                    <td className="border p-2">{user.name}</td>
+                    <td className="border p-2">{user.email}</td>
+                    <td className="border p-2 text-2xl">
+                      <Link
+                        href={`/form/dashboard/useredit/${user.id}`}
+                        className="mr-3 hover:text-blue-600"
+                      >
+                        ✏
+                      </Link>
+                      <button
+                        onClick={() => deletepannuda(user.id)}
+                        className="hover:text-blue-600"
+                      >
+                        🗑
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {activeTab === "projects" && (
+          <div className="bg-white p-6 mt-5 shadow-md rounded-lg">
+            <h2 className="text-2xl font-semibold mb-4">Projects</h2>
+            <table className="w-full border-collapse border border-gray-300 text-sm">
+              <thead>
+                <tr className="bg-gray-200">
+                  <th className="border p-2">ID</th>
+                  <th className="border p-2">Title</th>
+                  <th className="border p-2">Description</th>
+                  <th className="border p-2">Duration<br />(months)</th>
+                  <th className="border p-2">Budget</th>
+                  <th className="border p-2">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {projects.map((project) => (
+                  <tr key={project.id} className="text-center">
+                    <td className="border p-2">{project.id}</td>
+                    <td className="border p-2">{project.project_title}</td>
+                    <td className="border p-2">{project.project_description}</td>
+                    <td className="border p-2">{project.project_duration}</td>
+                    <td className="border p-2">{project.budget}</td>
+                    <td className="border p-2 text-xl flex justify-center gap-4">
+                      <button
+                        onClick={() => deleteproject(project.id, "Accepted")}
+                        className="hover:text-green-600"
+                      >
+                        ✅
+                      </button>
+                      <button
+                        onClick={() => deleteproject(project.id, "Declined")}
+                        className="hover:text-red-600"
+                      >
+                        ❌
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {activeTab === "meeting" && (
+          <div className="bg-white p-6 mt-5 shadow-md rounded-lg">
+            <h2 className="text-2xl font-semibold mb-4">Scheduled Meetings</h2>
+            <table className="w-full border-collapse border border-gray-300 text-sm">
+              <thead>
+                <tr className="bg-gray-200">
+                  <th className="border p-2">ID</th>
+                  <th className="border p-2">Project ID</th>
+                  <th className="border p-2">Date</th>
+                  <th className="border p-2">Time</th>
+                  <th className="border p-2">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {meetings.map((meeting) => (
+                  <tr key={meeting.id} className="text-center">
+                    <td className="border p-2">{meeting.id}</td>
+                    <td className="border p-2">{meeting.project}</td>
+                    <td className="border p-2">{meeting.meeting_date}</td>
+                    <td className="border p-2">{meeting.meeting_time}</td>
+                    <td className="border p-2">{meeting.meeting_status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {showMeetingForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded shadow-lg w-96">
+              <h3 className="text-xl font-bold mb-4">Schedule Meeting</h3>
+              <label className="block mb-2 text-sm">Meeting Date</label>
+              <input
+                type="date"
+                value={meetingDate}
+                min={curdate}
+                onChange={(e) => setMeetingDate(e.target.value)}
+                className="w-full border px-3 py-2 mb-4 rounded"
+              />
+
+              <label className="block mb-2 text-sm">Meeting Time</label>
+              <input
+                type="time"
+                value={meetingTime}
+                min="18:00"
+                max="21:00"
+                onChange={(e) => setMeetingTime(e.target.value)}
+                className="w-full border px-3 py-2 mb-4 rounded"
+              />
+
+              <div className="flex justify-between mt-4">
+                <button
+                  onClick={() => setShowMeetingForm(false)}
+                  className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500 transition"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={handleMeetingSubmit}
+                  disabled={chk}
+                  className={`px-4 py-2 rounded transition ${
+                    chk
+                      ? "bg-blue-300 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700 text-white"
+                  }`}
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

@@ -156,7 +156,24 @@ export default function DashboardPage() {
         setUser(null);
         router.push("/form");
     };
-
+    const expirecheck = (projectId: number) => {    
+        const scheduledDatetime = getScheduledDatetime(projectId); 
+    
+        const now = new Date();
+        console.log("Current Date and Time:", now);
+        const future = new Date(now.getTime() + 30 * 60000); 
+        console.log("Future Date and Time:", future);
+        const scheduled = new Date(scheduledDatetime);
+    
+        if (scheduled < future) {
+            console.log(`Project ${projectId} is expired.`);
+            return "Expired";
+        } else {
+            console.log(`Project ${projectId} is still active.`);
+            return scheduledDatetime;
+        }
+    };
+    
     return (
         <div className="flex h-screen">
             <div className="w-64 bg-gray-800 text-white p-5 flex flex-col">
@@ -210,7 +227,7 @@ export default function DashboardPage() {
                                             <td className="border p-2 hover:bg-black hover:text-white">{project.project_description}</td>
                                             <td className="border p-2 hover:bg-black hover:text-white">{project.project_duration}</td>
                                             <td className="border p-2 hover:bg-black hover:text-white">₹{project.budget}</td>
-                                            <td className="border p-2 hover:bg-black hover:text-white">{getScheduledDatetime(project.id)}</td>
+                                            <td className="border p-2 hover:bg-black hover:text-white">{expirecheck(project.id)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
